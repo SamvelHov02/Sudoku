@@ -1,6 +1,8 @@
 package helper
 
-import "math/rand/v2"
+import (
+	"math/rand/v2"
+)
 
 type Game [9][9]int
 
@@ -62,62 +64,59 @@ func (g *Game) HiddenSingles() bool {
 	// Row by row find hidden singles
 	for i, row := range g {
 		RowNumbersLeft := g.PossibleRowValues(i)
-		for j := range row {
-			possible := g.PossibleValues(i, j)
-			commonlity := Intersection(RowNumbersLeft, possible)
+		for j, val := range row {
+			if val == 0 {
+				possible := g.PossibleValues(i, j)
+				commonlity := Intersection(RowNumbersLeft, possible)
 
-			// Found a hidden single
-			if len(commonlity) == 1 {
-				g[i][j] = commonlity[0]
-				Changed = true
+				// Found a hidden single
+				if len(commonlity) == 1 {
+					g[i][j] = commonlity[0]
+					Changed = true
+				}
 			}
 		}
 	}
 
 	// Column by column find hidden singles
+	for i := range len(g[0]) {
+		ColumnNumbersLeft := g.PossibleColumnValues(i)
+		for j := range len(g) {
+			if g[j][i] == 0 {
+				possible := g.PossibleValues(j, i)
+				commonlity := Intersection(ColumnNumbersLeft, possible)
 
-	return Changed
-}
-
-func (g *Game) PossibleValues(row int, col int) []int {
-	not_possible := make([]bool, 9)
-
-	// Row check
-	for _, rowVal := range g[row] {
-		if rowVal != 0 {
-			not_possible[rowVal] = true
-		}
-	}
-
-	// Column check
-	for _, rows := range g {
-		colVal := rows[col]
-		if colVal != 0 {
-			not_possible[colVal] = true
-		}
-	}
-
-	// Sqaure check
-	y := row / 3
-	x := col / 3
-
-	for _, rowVal := range g[x : x*3] {
-		for _, colVal := range rowVal[y : y*3] {
-			if colVal != 0 {
-				not_possible[colVal] = true
+				if len(commonlity) == 1 {
+					g[j][i] = commonlity[0]
+					Changed = true
+				}
 			}
 		}
 	}
 
-	retSlice := make([]int, 0, 9)
+	// Block by block find hidden singles
+	for i := range 3 {
+		for j := range 3 {
+			BlockNumbersLeft := g.PossibleBlockValues(i, j)
+			for i2, row := range g[i*3 : (i+1)*3] {
+				for j2, val := range row[j*3 : (j+1)*3] {
+					if val == 0 {
+						rIdx := (i * 3) + i2
+						cIdx := (j * 3) + j2
+						possible := g.PossibleValues(rIdx, cIdx)
+						commonlity := Intersection(BlockNumbersLeft, possible)
 
-	for i, not_pos := range not_possible {
-		if !not_pos {
-			retSlice = append(retSlice, i+1)
+						if len(commonlity) == 1 {
+							g[rIdx][cIdx] = commonlity[0]
+							Changed = true
+						}
+					}
+				}
+			}
 		}
 	}
 
-	return retSlice
+	return Changed
 }
 
 func (g *Game) PossibleRowValues(row int) []int {
@@ -181,7 +180,7 @@ func (g *Game) PossibleBlockValues(rowIdx int, colIdx int) []int {
 	return left
 }
 
-func (g Game) FancyPossibleValues(row int, col int) []int {
+func (g Game) PossibleValues(row int, col int) []int {
 	rowBlock := row / 3
 	colBlock := col / 3
 
@@ -224,7 +223,7 @@ func (g *Game) isSolved() bool {
 
 // A Backtracking algorithm that tries to solve a sudoku by trying one of the possible values
 func backtrack(g Game) []Game {
-
+	TotalSolutions := make([]Game, 1)
 	for i, row := range g {
 		for j, val := range row {
 			if val != 0 {
@@ -233,12 +232,12 @@ func backtrack(g Game) []Game {
 				if g.isSolved() {
 					return []Game{g}
 				}
-				backtrack(g)
+				TotalSolutions = append(TotalSolutions, backtrack(g)...)
 			}
 		}
 	}
 
-	return []Game{g}
+	return TotalSolutions
 }
 
 func Intersection(a []int, b []int) []int {

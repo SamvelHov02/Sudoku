@@ -1,35 +1,43 @@
 package helper
 
-import "math/rand/v2"
+import (
+	"fmt"
+	"math/rand/v2"
+)
 
 type Grid struct {
-	HiddenGrid   [9][9]int
-	RevealedGrid [9][9]int
+	HiddenGrid   Game
+	RevealedGrid Game
 	Mistakes     int
 	Hints        int
 }
 
 // This method creates the underlying structure / grid
-func (g *Grid) fillGrid() {
-	for i := 0; i < len(g.HiddenGrid); i++ {
-		row := g.HiddenGrid[i]
-		tempRow := make([]int, 9)
-		for j, val := range row {
-			// Unassigned cell
-			if val == 0 {
-				possible := PossibleValues(g, i, j)
+func (g *Grid) FillGrid() bool {
+	return g.fill(0)
+}
 
-				if len(possible) > 0 {
-					tempRow[j] = possible[rand.IntN(len(possible))]
-				} else {
-					// No possible value, some conflict that needs to be solved
-					i--
-					break
-				}
-			}
+func (g *Grid) fill(pos int) bool {
+	if pos == 81 {
+		return true
+	}
+
+	row, col := pos/9, pos%9
+
+	candidates := PossibleValues(g, row, col)
+	rand.Shuffle(len(candidates), func(a, b int) {
+		candidates[a], candidates[b] = candidates[b], candidates[a]
+	})
+
+	for _, v := range candidates {
+		g.HiddenGrid[row][col] = v
+		if g.fill(pos + 1) {
+			return true
 		}
 	}
 
+	g.HiddenGrid[row][col] = 0
+	return false
 }
 
 func (g *Grid) MarkCell(row int, col int, val int) {
@@ -39,7 +47,8 @@ func (g *Grid) MarkCell(row int, col int, val int) {
 
 // This function returns the possible values for a cell if there according to sudoku rules
 func PossibleValues(g *Grid, row int, col int) []int {
-	not_possible := make([]bool, 9)
+	fmt.Printf("row : %d, col : %d", row, col)
+	not_possible := make([]bool, 10)
 
 	// Row check
 	for _, rowVal := range g.HiddenGrid[row] {
@@ -57,11 +66,11 @@ func PossibleValues(g *Grid, row int, col int) []int {
 	}
 
 	// Sqaure check
-	y := row / 3
-	x := col / 3
+	boxRow := (row / 3) * 3
+	boxCol := (col / 3) * 3
 
-	for _, rowVal := range g.HiddenGrid[x : x*3] {
-		for _, colVal := range rowVal[y : y*3] {
+	for _, rowVal := range g.HiddenGrid[boxRow : boxRow+3] {
+		for _, colVal := range rowVal[boxCol : boxCol+3] {
 			if colVal != 0 {
 				not_possible[colVal] = true
 			}
@@ -70,7 +79,7 @@ func PossibleValues(g *Grid, row int, col int) []int {
 
 	retSlice := make([]int, 0, 9)
 
-	for i, not_pos := range not_possible {
+	for i, not_pos := range not_possible[1:] {
 		if !not_pos {
 			retSlice = append(retSlice, i+1)
 		}
